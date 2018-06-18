@@ -1,25 +1,41 @@
 const UINT32_MAX_VALUE = Math.pow(2, 32) - 1;
 
+let currentTask = null;
+
 self.addEventListener('message', event => {
   const { width, height, buffer, carveLines } = event.data.payload;
   const imageData = new ImageData(new Uint8ClampedArray(buffer), width, height);
-  const carved = seamCarving(imageData, carveLines);
-  self.postMessage(
-    {
-      payload: {
-        width: carved.width,
-        height: carved.height,
-        buffer: carved.data.buffer
-      }
-    },
-    [carved.data.buffer]
-  );
+  currentTask = seamCarving(imageData, carveLines);
+  dispatch(currentTask);
 });
+
+const dispatch = task => {
+  const loop = () => {
+    if (currentTask !== task) return;
+    const { done, value } = task.next();
+    if (!done) {
+      setTimeout(loop, 0);
+      return;
+    }
+    self.postMessage(
+      {
+        payload: {
+          width: value.width,
+          height: value.height,
+          buffer: value.data.buffer
+        }
+      },
+      [value.data.buffer]
+    );
+  };
+  loop();
+};
 
 /**
  * @param {ImageData} originalImage
+ * @return {any}
  */
-function seamCarving(originalImage, carveLines) {
+function* seamCarving(originalImage, carveLines) {
   // gray scale
   let gray = new Uint8ClampedArray(originalImage.data.length / 4);
   for (let i = 0; i < gray.length; ++i) {
@@ -32,6 +48,8 @@ function seamCarving(originalImage, carveLines) {
 
   let carved = originalImage;
   for (let n = 0; n < carveLines; ++n) {
+    yield; // canceling point
+
     const { data, width, height } = carved;
 
     // ===== Energy Map =====
