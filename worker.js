@@ -1,9 +1,9 @@
 const UINT32_MAX_VALUE = Math.pow(2, 32) - 1;
 
 self.addEventListener('message', event => {
-  const { width, height, buffer } = event.data.payload;
+  const { width, height, buffer, carveLines } = event.data.payload;
   const imageData = new ImageData(new Uint8ClampedArray(buffer), width, height);
-  const carved = seamCarving(imageData, 300);
+  const carved = seamCarving(imageData, carveLines);
   self.postMessage(
     {
       payload: {

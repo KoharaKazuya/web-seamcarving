@@ -1,6 +1,8 @@
 const canvas = document.querySelector('canvas');
 const context = canvas.getContext('2d');
 
+let originalBuffer, originalWidth, originalHeight;
+
 const worker = new Worker('worker.js');
 worker.addEventListener('message', event => {
   const { width, height, buffer } = event.data.payload;
@@ -8,6 +10,7 @@ worker.addEventListener('message', event => {
   canvas.height = height;
   const imageData = new ImageData(new Uint8ClampedArray(buffer), width, height);
   context.putImageData(imageData, 0, 0);
+  console.log('done!');
 });
 
 window.addEventListener('dragover', event => event.preventDefault());
@@ -21,24 +24,48 @@ window.addEventListener('drop', event => {
   reader.onload = event => {
     img.src = event.target.result;
     img.onload = () => {
-      const width = (canvas.width = img.naturalWidth);
-      const height = (canvas.height = img.naturalHeight);
+      originalWidth = canvas.width = img.naturalWidth;
+      originalHeight = canvas.height = img.naturalHeight;
 
       context.drawImage(img, 0, 0);
-      const {
-        data: { buffer }
-      } = context.getImageData(0, 0, width, height);
-      worker.postMessage({ payload: { width, height, buffer } }, [buffer]);
+      const imageData = context.getImageData(
+        0,
+        0,
+        originalWidth,
+        originalHeight
+      );
+      originalBuffer = imageData.data.buffer;
     };
   };
   reader.readAsDataURL(file);
 });
 
-// const fitCanvas = () => {
-//   canvas.width = document.body.clientWidth;
-//   canvas.height = document.body.clientHeight;
+const throttleByRaf = f => {
+  let running = false;
+  return () => {
+    if (running) return;
+    running = true;
+    requestAnimationFrame(() => {
+      f();
+      running = false;
+    });
+  };
+};
 
-//   // TODO: redraw
-// };
-// window.addEventListener('resize', fitCanvas);
-// fitCanvas();
+const fitWithWindow = throttleByRaf(() => {
+  const width = originalWidth;
+  const height = originalHeight;
+  const winWidth = document.body.clientWidth;
+  const winHeight = document.body.clientHeight;
+
+  if (width * winHeight > height * winWidth) {
+    const carveLines = width - Math.floor((height * winWidth) / winHeight);
+    const buffer = originalBuffer.slice(0); // clone buffer
+    worker.postMessage({ payload: { width, height, buffer, carveLines } }, [
+      buffer
+    ]);
+    console.log('requested');
+  }
+});
+
+window.addEventListener('resize', fitWithWindow);
