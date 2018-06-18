@@ -1,3 +1,4 @@
+const message = document.querySelector('#message');
 const canvas = document.querySelector('canvas');
 const context = canvas.getContext('2d');
 
@@ -10,7 +11,8 @@ worker.addEventListener('message', event => {
   canvas.height = height;
   const imageData = new ImageData(new Uint8ClampedArray(buffer), width, height);
   context.putImageData(imageData, 0, 0);
-  console.log('done!');
+  message.classList.remove('resizing');
+  canvas.classList.remove('resizing');
 });
 
 window.addEventListener('dragover', event => event.preventDefault());
@@ -38,6 +40,8 @@ window.addEventListener('drop', event => {
     };
   };
   reader.readAsDataURL(file);
+
+  document.querySelector('#prompt').style.display = 'none';
 });
 
 const throttleByRaf = f => {
@@ -64,7 +68,8 @@ const fitWithWindow = throttleByRaf(() => {
     worker.postMessage({ payload: { width, height, buffer, carveLines } }, [
       buffer
     ]);
-    console.log('requested');
+    message.classList.add('resizing');
+    canvas.classList.add('resizing');
   }
 });
 
